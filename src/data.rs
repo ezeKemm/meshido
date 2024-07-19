@@ -1,21 +1,32 @@
 use crate::prelude::*;
+use bvh::aabb::{Aabb, Bounded};
+use bvh::bounding_hierarchy::BHShape;
+use bvh::bvh::Bvh;
 use core::fmt;
+use nalgebra::Point3;
 
 // Once Data has been built from an .obj file, we should neve have to mutate the data
 pub struct Data {
     pub vertices: Vec<Point>, // A list of points in 3-d space (3-vec)
     pub faces: Vec<Index>,    // Each triangular face is stored as a list of indices to the vertices
     pub triangles: Vec<Face>, // Each triangle is separately stored as a list of points
+    pub bvh: Bvh<f32, 3>,
     pub gas: f32,
 }
 
 impl Data {
-    pub fn new(vertices: Vec<Point>, faces: Vec<Index>, triangles: Vec<Face>) -> Self {
+    pub fn new(
+        vertices: Vec<Point>,
+        faces: Vec<Index>,
+        triangles: Vec<Face>,
+        bvh: Bvh<f32, 3>,
+    ) -> Self {
         Data {
             vertices,
             faces,
             triangles,
             gas: 0.0,
+            bvh,
         }
     }
     pub fn vert(&self) -> &Vec<Point> {
@@ -29,6 +40,34 @@ impl Data {
     }
     pub fn gas(&self) -> &f32 {
         &self.gas
+    }
+
+    // Convert primitives to nalgebra types
+    pub fn build(v: Vec<[f32; 3]>, f: Vec<[usize; 3]>) -> Result<Data, Box<dyn std::error::Error>> {
+        let vertices: Vec<Point> = v.iter().map(|p| Vec3::new(p[0], p[1], p[2])).collect();
+        let faces: Vec<Index> = f.iter().map(|k| Vec3::new(k[0], k[1], k[2])).collect();
+
+        // Vector 'faces' points to the 3 vertices that form a triangular mesh by storing 3 indices to Vector 'vertices'
+        // To improve later ease of use, 'triangles' directly stores the 3 points of the triangular mesh
+        let mut triangles: Vec<Face> = Vec::new();
+        let mut shapes: Vec<Triangle> = Vec::new();
+        for face in faces.iter() {
+            let f = Face::new(
+                Point3::from(vertices[face[0] - 1]),
+                Point3::from(vertices[face[1] - 1]),
+                Point3::from(vertices[face[2] - 1]),
+            );
+            triangles.push(f);
+            let triangle = Triangle {
+                pts: f,
+                node_index: 0,
+            };
+            shapes.push(triangle);
+        }
+        let bvh = bvh::bvh::Bvh::build(&mut shapes);
+        // We keep 'vertices' and 'faces' for ease of validating uniqueness and boundedness...
+        // even though 'triangles' contains all requisite data
+        Ok(Data::new(vertices, faces, triangles, bvh))
     }
 }
 
@@ -50,5 +89,31 @@ impl fmt::Display for Data {
             prt_str += &format!("[ {}, {}, {} ]", face[0], face[1], face[2]);
         }
         write!(f, "{}", prt_str)
+    }
+}
+
+struct Triangle {
+    pts: Face,
+    node_index: usize,
+}
+
+impl Bounded<f32, 3> for Triangle {
+    fn aabb(&self) -> Aabb<f32, 3> {
+        let mut aabb = Aabb::empty();
+
+        for p in self.pts.iter() {
+            aabb = aabb.grow(p);
+        }
+        aabb
+    }
+}
+
+impl BHShape<f32, 3> for Triangle {
+    fn set_bh_node_index(&mut self, index: usize) {
+        self.node_index = index;
+    }
+
+    fn bh_node_index(&self) -> usize {
+        self.node_index
     }
 }
