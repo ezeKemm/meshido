@@ -1,5 +1,6 @@
 mod aabb;
 mod brutus;
+mod bvh;
 mod coplanar;
 mod data;
 mod prelude;

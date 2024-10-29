@@ -51,7 +51,7 @@ fn _moller_trumbore_intersection(
 }
 
 #[derive(Debug)]
-enum RayTri {
+pub enum RayTri {
     Degenerate,
     Disjoint,
     Parallel,
@@ -158,7 +158,7 @@ pub fn brute_self_intersection(data: Data) -> bool {
     true
 }
 
-fn check_coplanar(face1: &Face, face2: &Face) -> bool {
+pub fn check_coplanar(face1: &Face, face2: &Face) -> bool {
     // Works bc we already know one edge of face2 is in the plane of face1
     let (a0, a1, a2) = (face1[0], face1[1], face1[2]);
     let (b0, b1, b2) = (face2[0], face2[1], face2[2]);
@@ -254,7 +254,7 @@ impl<'a> Log<'a> {
     }
 }
 
-fn ray_intersect(
+pub fn ray_intersect(
     v0: &Point, // triangle vertices
     v1: &Point,
     v2: &Point,
@@ -405,6 +405,27 @@ mod test {
         // A ray parallel to the triangle plane (non-intersecting)
         let p0 = nalgebra::vector![1.0, 1.0, 1.0];
         let p1 = nalgebra::vector![3.0, 3.0, 1.0];
+
+        use super::ray_intersect;
+        let result = ray_intersect(&v0, &v1, &v2, &p0, &p1);
+        println!("test_result: {:?}", result);
+        assert!({
+            if let RayTri::Disjoint = result {
+                true
+            } else {
+                false
+            }
+        })
+    }
+    #[test]
+    fn ray_fucked() {
+        // Triangle in positive xy-plane with leg length of 3
+        let v0 = nalgebra::vector![0.0, 1.0, 0.0];
+        let v1 = nalgebra::vector![-1.0, -1.0, 0.0];
+        let v2 = nalgebra::vector![0.0, -1.0, -1.0];
+        // A ray parallel to the triangle plane (non-intersecting)
+        let p0 = nalgebra::vector![1.0, 0.0, 0.0];
+        let p1 = nalgebra::vector![0.0, 1.0, 0.0];
 
         use super::ray_intersect;
         let result = ray_intersect(&v0, &v1, &v2, &p0, &p1);

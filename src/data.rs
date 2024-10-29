@@ -12,6 +12,7 @@ pub struct Data {
     pub triangles: Vec<Face>, // Each triangle is separately stored as a list of points
     pub bvh: Bvh<f32, 3>,
     pub gas: f32,
+    pub shapes: Vec<Triangle>,
 }
 
 impl Data {
@@ -20,6 +21,7 @@ impl Data {
         faces: Vec<Index>,
         triangles: Vec<Face>,
         bvh: Bvh<f32, 3>,
+        shapes: Vec<Triangle>,
     ) -> Self {
         Data {
             vertices,
@@ -27,6 +29,7 @@ impl Data {
             triangles,
             gas: 0.0,
             bvh,
+            shapes,
         }
     }
     pub fn vert(&self) -> &Vec<Point> {
@@ -67,7 +70,7 @@ impl Data {
         let bvh = bvh::bvh::Bvh::build(&mut shapes);
         // We keep 'vertices' and 'faces' for ease of validating uniqueness and boundedness...
         // even though 'triangles' contains all requisite data
-        Ok(Data::new(vertices, faces, triangles, bvh))
+        Ok(Data::new(vertices, faces, triangles, bvh, shapes))
     }
 }
 
@@ -92,9 +95,9 @@ impl fmt::Display for Data {
     }
 }
 
-struct Triangle {
-    pts: Face,
-    node_index: usize,
+pub struct Triangle {
+    pub pts: Face,
+    pub node_index: usize,
 }
 
 impl Bounded<f32, 3> for Triangle {
@@ -115,5 +118,27 @@ impl BHShape<f32, 3> for Triangle {
 
     fn bh_node_index(&self) -> usize {
         self.node_index
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn bvh() {
+        let a0 = [1.0, 0.0, 0.0];
+        let a1 = [0.0, 1.0, 0.0];
+        let a2 = [0.0, 0.0, 1.0];
+
+        let b0 = [0.0, 0.0, 0.0];
+        let b1 = [-1.0, -1.0, 0.0];
+        let b2 = [0.0, -1.0, -1.0];
+        let v: Vec<[f32; 3]> = vec![a0, a1, a2, b0, b1, b2];
+        let f: Vec<[usize; 3]> = vec![[1, 2, 3], [4, 5, 6]];
+
+        let data = super::Data::build(v, f).expect("Failed in test:: build data");
+        let bvh = data.bvh;
+        bvh.pretty_print();
+
+        assert!(bvh.nodes.len() == 3);
     }
 }
